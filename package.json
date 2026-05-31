@@ -3,14 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "zero": "./src/index.ts"
+  },
   "scripts": {
     "check": "bun run check:prettier && bun run check:eslint",
     "check:prettier": "prettier -c \"**/*.{json,js,ts}\"",
     "check:eslint": "eslint \"**/*.{js,ts}\"",
+    "start": "bun src/index.ts",
     "test": "bun test",
+    "tui": "bun src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@opentui/core": "^0.3.0",
     "drone": "file:./vendor/drone-1.0.0.tgz"
   },
   "devDependencies": {
