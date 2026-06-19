@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@opentui/core": "^0.3.0",
-    "drone": "file:./vendor/drone-1.0.0.tgz"
+    "roboport": "^0.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

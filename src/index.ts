@@ -10,9 +10,9 @@ import {
   type KeyEvent,
   type ThemeMode,
 } from '@opentui/core';
-import { Agent, type Session, type Turn, type TurnEvent } from 'drone';
-import { bash } from 'drone/harness';
-import { OpenAIModel } from 'drone/models';
+import { Agent, type Session, type Turn, type TurnEvent } from 'roboport';
+import { bash } from 'roboport/harness';
+import { OpenAI } from 'roboport/models';
 
 import summarizeInput from './format';
 
@@ -507,11 +507,11 @@ function inferThemeFromEnv(): ThemeMode {
 
 function createAgent(): Agent {
   return new Agent({
-    model: new OpenAIModel('gpt-5.3-codex', {
+    model: new OpenAI('gpt-5.3-codex', {
       auth: { type: 'apiKey', apiKey: process.env.OPENAI_API_KEY },
       thinking: 'high',
     }),
-    prompt: 'You are a coding agent.',
+    system: 'You are a coding agent.',
     tools: [bash],
     skills: [],
   });
