@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Pixel Editor</title>
+    <style>
+      :root {
+        --bg: #f3f5f8;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --border: #d9dee5;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 62%);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+
+      .app {
+        width: min(1160px, calc(100vw - 24px));
+        margin: 0 auto;
+        padding: 18px 0 28px;
+      }
+
+      .heading {
+        margin-bottom: 14px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.35rem, 2.8vw, 2rem);
+      }
+
+      .heading p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      .layout {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 1fr) 320px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+      }
+
+      .editor {
+        padding: 14px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .color-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 5px 8px;
+        background: #fbfcfe;
+      }
+
+      .color-wrap span {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      input[type='color'] {
+        width: 36px;
+        height: 32px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 2px;
+        background: transparent;
+      }
+
+      button {
+        height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--text);
+        padding: 0 12px;
+        font: inherit;
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          background-color 0.15s ease,
+          transform 0.04s ease;
+      }
+
+      button:hover {
+        border-color: #b8c2cf;
+        background: #fafbfc;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      .tool.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: #12357c;
+      }
+
+      .danger {
+        margin-left: auto;
+        color: var(--danger);
+      }
+
+      .canvas-wrap {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        background: #fbfcff;
+      }
+
+      .canvas-stage {
+        position: relative;
+        width: min(100%, 680px);
+        aspect-ratio: 1;
+        margin: 0 auto;
+      }
+
+      #editorCanvas,
+      .grid-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+      }
+
+      #editorCanvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        cursor: crosshair;
+        touch-action: none;
+        background: #fff;
+      }
+
+      .grid-overlay {
+        pointer-events: none;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background-image:
+          linear-gradient(to right, rgba(0, 0, 0, 0.12) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+        background-size:
+          calc(100% / 32) calc(100% / 32),
+          calc(100% / 32) calc(100% / 32);
+      }
+
+      .side {
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+        align-content: start;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .palette {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .swatch {
+        aspect-ratio: 1;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 0;
+      }
+
+      .swatch.selected {
+        outline: 2px solid #111827;
+        outline-offset: 1px;
+      }
+
+      #previewCanvas {
+        width: min(180px, 56vw);
+        aspect-ratio: 1;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        background: #fff;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 180px;
+        resize: vertical;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        color: var(--text);
+        background: #fbfcff;
+        font:
+          12px/1.4 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Monaco,
+          Consolas,
+          monospace;
+      }
+
+      .json-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .status {
+        margin: 0;
+        min-height: 1.2em;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .status.error {
+        color: #b42318;
+      }
+
+      .status.ok {
+        color: #18794e;
+      }
+
+      .hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      @media (max-width: 920px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .danger {
+          margin-left: 0;
+        }
+
+        .controls {
+          align-items: stretch;
+        }
+
+        button,
+        input[type='color'] {
+          min-height: 40px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="heading">
+        <h1>Pixel Editor</h1>
+        <p>
+          Paint on a 32×32 grid with pointer input, preview live, and
+          export/import as JSON.
+        </p>
+      </header>
+
+      <div class="layout">
+        <section class="editor card">
+          <div class="controls">
+            <label class="color-wrap">
+              <span>Color</span>
+              <input
+                id="colorPicker"
+                type="color"
+                value="#2563eb"
+                aria-label="Paint color"
+              />
+            </label>
+
+            <button
+              id="paintTool"
+              class="tool active"
+              type="button"
+              aria-pressed="true"
+            >
+              Paint
+            </button>
+            <button
+              id="eraseTool"
+              class="tool"
+              type="button"
+              aria-pressed="false"
+            >
+              Erase
+            </button>
+            <button
+              id="fillTool"
+              class="tool"
+              type="button"
+              aria-pressed="false"
+            >
+              Fill
+            </button>
+            <button
+              id="clearBtn"
+              class="danger"
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div class="canvas-wrap">
+            <div class="canvas-stage">
+              <canvas
+                id="editorCanvas"
+                width="32"
+                height="32"
+                aria-label="32 by 32 pixel drawing area"
+              ></canvas>
+              <div
+                class="grid-overlay"
+                aria-hidden="true"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side card">
+          <div>
+            <h2>Palette</h2>
+            <div
+              id="palette"
+              class="palette"
+            ></div>
+          </div>
+
+          <div>
+            <h2>Live Preview</h2>
+            <canvas
+              id="previewCanvas"
+              width="32"
+              height="32"
+              aria-label="Live pixel art preview"
+            ></canvas>
+          </div>
+
+          <div>
+            <h2>JSON Export / Import</h2>
+            <textarea
+              id="jsonArea"
+              spellcheck="false"
+              aria-label="Pixel data JSON"
+            ></textarea>
+            <div class="json-actions">
+              <button
+                id="exportBtn"
+                type="button"
+              >
+                Export
+              </button>
+              <button
+                id="importBtn"
+                type="button"
+              >
+                Import
+              </button>
+            </div>
+            <p
+              id="status"
+              class="status"
+              role="status"
+              aria-live="polite"
+            ></p>
+            <p class="hint">
+              Tip: press Ctrl/Cmd + Enter in the JSON box to import.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      (() => {
+        const SIZE = 32;
+        const PIXEL_COUNT = SIZE * SIZE;
+        const BLANK = '#ffffff';
+
+        const paletteColors = [
+          '#000000',
+          '#ffffff',
+          '#ef4444',
+          '#f97316',
+          '#f59e0b',
+          '#eab308',
+          '#84cc16',
+          '#22c55e',
+          '#10b981',
+          '#14b8a6',
+          '#06b6d4',
+          '#0ea5e9',
+          '#2563eb',
+          '#3b82f6',
+          '#6366f1',
+          '#8b5cf6',
+          '#a855f7',
+          '#d946ef',
+          '#ec4899',
+          '#f43f5e',
+          '#6b7280',
+          '#9ca3af',
+          '#4b5563',
+          '#92400e',
+          '#166534',
+        ];
+
+        const state = {
+          tool: 'paint',
+          color: '#2563eb',
+          drawing: false,
+          lastIndex: -1,
+          pixels: new Array(PIXEL_COUNT).fill(BLANK),
+        };
+
+        const elements = {
+          canvas: document.getElementById('editorCanvas'),
+          preview: document.getElementById('previewCanvas'),
+          colorPicker: document.getElementById('colorPicker'),
+          paintTool: document.getElementById('paintTool'),
+          eraseTool: document.getElementById('eraseTool'),
+          fillTool: document.getElementById('fillTool'),
+          clearBtn: document.getElementById('clearBtn'),
+          palette: document.getElementById('palette'),
+          jsonArea: document.getElementById('jsonArea'),
+          exportBtn: document.getElementById('exportBtn'),
+          importBtn: document.getElementById('importBtn'),
+          status: document.getElementById('status'),
+        };
+
+        const ctx = elements.canvas.getContext('2d', { alpha: false });
+        const previewCtx = elements.preview.getContext('2d', { alpha: false });
+
+        function normalizeHex(input) {
+          if (typeof input !== 'string') return null;
+          const value = input.trim().toLowerCase();
+          if (/^#[0-9a-f]{6}$/.test(value)) return value;
+          if (/^#[0-9a-f]{3}$/.test(value)) {
+            return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+          }
+          return null;
+        }
+
+        function setStatus(message, type = '') {
+          elements.status.textContent = message;
+          elements.status.className = `status ${type}`.trim();
+        }
+
+        function setTool(tool) {
+          state.tool = tool;
+          const tools = [
+            ['paintTool', 'paint'],
+            ['eraseTool', 'erase'],
+            ['fillTool', 'fill'],
+          ];
+
+          tools.forEach(([key, name]) => {
+            const active = tool === name;
+            elements[key].classList.toggle('active', active);
+            elements[key].setAttribute('aria-pressed', String(active));
+          });
+        }
+
+        function colorFromTool() {
+          return state.tool === 'erase' ? BLANK : state.color;
+        }
+
+        function renderCanvas() {
+          for (let i = 0; i < PIXEL_COUNT; i += 1) {
+            const x = i % SIZE;
+            const y = (i / SIZE) | 0;
+            ctx.fillStyle = state.pixels[i];
+            ctx.fillRect(x, y, 1, 1);
+          }
+          renderPreview();
+          syncJsonIfIdle();
+        }
+
+        function renderPreview() {
+          previewCtx.clearRect(0, 0, SIZE, SIZE);
+          previewCtx.drawImage(elements.canvas, 0, 0);
+        }
+
+        function setPixel(index, color) {
+          if (index < 0 || index >= PIXEL_COUNT) return false;
+          if (state.pixels[index] === color) return false;
+          state.pixels[index] = color;
+          return true;
+        }
+
+        function floodFill(startIndex, targetColor, nextColor) {
+          if (targetColor === nextColor) return;
+          const stack = [startIndex];
+
+          while (stack.length > 0) {
+            const index = stack.pop();
+            if (state.pixels[index] !== targetColor) continue;
+
+            state.pixels[index] = nextColor;
+
+            const row = (index / SIZE) | 0;
+            const col = index % SIZE;
+
+            if (row > 0) stack.push(index - SIZE);
+            if (row < SIZE - 1) stack.push(index + SIZE);
+            if (col > 0) stack.push(index - 1);
+            if (col < SIZE - 1) stack.push(index + 1);
+          }
+        }
+
+        function applyToolAt(index, isStart = false) {
+          if (index < 0 || index >= PIXEL_COUNT) return;
+          if (index === state.lastIndex && state.tool !== 'fill') return;
+
+          if (state.tool === 'fill') {
+            if (!isStart) return;
+            floodFill(index, state.pixels[index], colorFromTool());
+            renderCanvas();
+            setStatus('Filled region.', 'ok');
+            return;
+          }
+
+          if (setPixel(index, colorFromTool())) {
+            renderCanvas();
+          }
+
+          state.lastIndex = index;
+        }
+
+        function indexFromPointer(event) {
+          const rect = elements.canvas.getBoundingClientRect();
+          const relX = (event.clientX - rect.left) / rect.width;
+          const relY = (event.clientY - rect.top) / rect.height;
+
+          if (relX < 0 || relX >= 1 || relY < 0 || relY >= 1) return -1;
+
+          const x = Math.floor(relX * SIZE);
+          const y = Math.floor(relY * SIZE);
+          return y * SIZE + x;
+        }
+
+        function clearPixels() {
+          state.pixels.fill(BLANK);
+          renderCanvas();
+          setStatus('Canvas cleared.', 'ok');
+        }
+
+        function exportJson(pretty = true) {
+          const payload = {
+            size: SIZE,
+            pixels: state.pixels,
+          };
+          elements.jsonArea.value = JSON.stringify(
+            payload,
+            null,
+            pretty ? 2 : 0,
+          );
+          setStatus('JSON exported.', 'ok');
+        }
+
+        function syncJsonIfIdle() {
+          if (document.activeElement === elements.jsonArea) return;
+          elements.jsonArea.value = JSON.stringify(
+            { size: SIZE, pixels: state.pixels },
+            null,
+            2,
+          );
+        }
+
+        function importJson() {
+          let parsed;
+
+          try {
+            parsed = JSON.parse(elements.jsonArea.value);
+          } catch {
+            setStatus('Import failed: JSON is invalid.', 'error');
+            return;
+          }
+
+          if (
+            !parsed ||
+            parsed.size !== SIZE ||
+            !Array.isArray(parsed.pixels)
+          ) {
+            setStatus(
+              `Import failed: expected { size: ${SIZE}, pixels: [...] }`,
+              'error',
+            );
+            return;
+          }
+
+          if (parsed.pixels.length !== PIXEL_COUNT) {
+            setStatus(
+              `Import failed: pixels must contain ${PIXEL_COUNT} colors.`,
+              'error',
+            );
+            return;
+          }
+
+          const next = new Array(PIXEL_COUNT);
+          for (let i = 0; i < PIXEL_COUNT; i += 1) {
+            const normalized = normalizeHex(parsed.pixels[i]);
+            if (!normalized) {
+              setStatus(
+                `Import failed: pixel ${i} is not a valid hex color.`,
+                'error',
+              );
+              return;
+            }
+            next[i] = normalized;
+          }
+
+          state.pixels = next;
+          renderCanvas();
+          setStatus('JSON imported successfully.', 'ok');
+        }
+
+        function renderPalette() {
+          elements.palette.innerHTML = '';
+          for (const color of paletteColors) {
+            const swatch = document.createElement('button');
+            const normalizedColor = normalizeHex(color);
+            swatch.type = 'button';
+            swatch.className = 'swatch';
+            swatch.style.background = normalizedColor;
+            swatch.dataset.color = normalizedColor;
+            swatch.setAttribute('aria-label', `Select ${normalizedColor}`);
+            if (normalizedColor === state.color)
+              swatch.classList.add('selected');
+
+            swatch.addEventListener('click', () => {
+              state.color = normalizedColor;
+              elements.colorPicker.value = state.color;
+              setTool('paint');
+              highlightPalette();
+              setStatus(`Color set to ${state.color}.`);
+            });
+
+            elements.palette.appendChild(swatch);
+          }
+        }
+
+        function highlightPalette() {
+          const swatches = elements.palette.querySelectorAll('.swatch');
+          swatches.forEach((swatch) => {
+            const selected = swatch.dataset.color === state.color;
+            swatch.classList.toggle('selected', selected);
+          });
+        }
+
+        elements.canvas.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          elements.canvas.setPointerCapture(event.pointerId);
+          state.drawing = true;
+          state.lastIndex = -1;
+          applyToolAt(indexFromPointer(event), true);
+        });
+
+        elements.canvas.addEventListener('pointermove', (event) => {
+          if (!state.drawing || state.tool === 'fill') return;
+          applyToolAt(indexFromPointer(event));
+        });
+
+        function stopDrawing() {
+          state.drawing = false;
+          state.lastIndex = -1;
+        }
+
+        elements.canvas.addEventListener('pointerup', stopDrawing);
+        elements.canvas.addEventListener('pointercancel', stopDrawing);
+        elements.canvas.addEventListener('lostpointercapture', stopDrawing);
+
+        elements.colorPicker.addEventListener('input', (event) => {
+          const normalized = normalizeHex(event.target.value);
+          if (!normalized) return;
+          state.color = normalized;
+          highlightPalette();
+        });
+
+        elements.paintTool.addEventListener('click', () => setTool('paint'));
+        elements.eraseTool.addEventListener('click', () => setTool('erase'));
+        elements.fillTool.addEventListener('click', () => setTool('fill'));
+
+        elements.clearBtn.addEventListener('click', clearPixels);
+        elements.exportBtn.addEventListener('click', () => exportJson(true));
+        elements.importBtn.addEventListener('click', importJson);
+
+        elements.jsonArea.addEventListener('keydown', (event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            importJson();
+          }
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.target === elements.jsonArea) return;
+          const key = event.key.toLowerCase();
+          if (key === 'b') setTool('paint');
+          if (key === 'e') setTool('erase');
+          if (key === 'g') setTool('fill');
+          if (key === 'x') clearPixels();
+        });
+
+        renderPalette();
+        setTool('paint');
+        renderCanvas();
+        exportJson(true);
+      })();
+    </script>
+  </body>
+</html>
