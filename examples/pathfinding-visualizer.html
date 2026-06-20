@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Pathfinding Visualizer</title>
+    <style>
+      :root {
+        --bg: #0f141a;
+        --panel: #161d25;
+        --panel-2: #202a35;
+        --text: #edf3fb;
+        --muted: #9da9b7;
+        --border: #2b3744;
+        --accent: #4cc9f0;
+        --start: #4ade80;
+        --goal: #fb7185;
+        --wall: #3b4652;
+        --visited: #4f8ef7;
+        --path: #ffd166;
+        --empty: #111820;
+        --gap: 2px;
+        --cell-size: 20px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top, #182432 0%, #0f141a 45%), var(--bg);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 1.4rem));
+        margin: 0 auto;
+        padding: 1rem 0 1.4rem;
+      }
+
+      .app-shell {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        box-shadow:
+          0 18px 40px rgba(0, 0, 0, 0.32),
+          inset 0 1px 0 rgba(255, 255, 255, 0.02);
+        overflow: hidden;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.2rem, 2.8vw, 1.9rem);
+        letter-spacing: 0.01em;
+      }
+
+      .subtitle {
+        margin: 0.3rem 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        justify-content: flex-end;
+      }
+
+      button,
+      select {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 0.6rem 0.78rem;
+        font: inherit;
+        line-height: 1;
+        min-height: 2.4rem;
+      }
+
+      button {
+        cursor: pointer;
+        transition:
+          transform 0.12s ease,
+          border-color 0.18s ease,
+          background 0.18s ease;
+      }
+
+      button:hover:not(:disabled) {
+        border-color: #415364;
+      }
+
+      button:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      button.primary {
+        border-color: #2a8aaa;
+        background: linear-gradient(180deg, #1986ab, #136a88);
+      }
+
+      button.ghost {
+        background: #1c242d;
+      }
+
+      button.tool.active {
+        border-color: #5f7ea0;
+        background: #253241;
+      }
+
+      button:disabled,
+      select:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 270px;
+        gap: 0.9rem;
+        padding: 0.9rem;
+      }
+
+      .board-panel,
+      aside {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #131a22;
+      }
+
+      .board-panel {
+        overflow: auto;
+        padding: 0.7rem;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(var(--cols), var(--cell-size));
+        grid-template-rows: repeat(var(--rows), var(--cell-size));
+        gap: var(--gap);
+        width: max-content;
+        touch-action: none;
+        user-select: none;
+      }
+
+      .cell {
+        border: 0;
+        padding: 0;
+        border-radius: 4px;
+        background: var(--empty);
+      }
+
+      .cell.wall {
+        background: var(--wall);
+      }
+
+      .cell.visited {
+        background: var(--visited);
+        animation: pulseIn 260ms ease;
+      }
+
+      .cell.path {
+        background: var(--path);
+        animation: pulseIn 300ms ease;
+      }
+
+      .cell.start {
+        background: var(--start);
+      }
+
+      .cell.goal {
+        background: var(--goal);
+      }
+
+      aside {
+        padding: 0.9rem;
+      }
+
+      .tool-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+        margin-bottom: 0.7rem;
+      }
+
+      .meta {
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .stat {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.8rem;
+        padding: 0.58rem 0;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .stat strong {
+        color: var(--text);
+      }
+
+      .hint {
+        margin-top: 0.8rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.4;
+      }
+
+      .legend {
+        margin-top: 0.9rem;
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 3px;
+        margin-right: 0.4rem;
+      }
+
+      @keyframes pulseIn {
+        from {
+          transform: scale(0.74);
+          filter: brightness(1.2);
+        }
+        to {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+      }
+
+      @media (max-width: 920px) {
+        .topbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .controls {
+          justify-content: flex-start;
+        }
+
+        .content {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="app-shell">
+        <header class="topbar">
+          <div>
+            <h1>Pathfinding Visualizer</h1>
+            <p class="subtitle">
+              Draw walls, drag start/goal nodes, then animate A* or
+              Breadth-First Search.
+            </p>
+          </div>
+
+          <div class="controls">
+            <select
+              id="algorithm"
+              aria-label="Algorithm"
+            >
+              <option value="astar">A* Search</option>
+              <option value="bfs">Breadth-First Search</option>
+            </select>
+            <button
+              id="mazeBtn"
+              class="ghost"
+            >
+              Random Maze
+            </button>
+            <button
+              id="clearBtn"
+              class="ghost"
+            >
+              Clear Board
+            </button>
+            <button
+              id="runBtn"
+              class="primary"
+            >
+              Run
+            </button>
+          </div>
+        </header>
+
+        <section class="content">
+          <div class="board-panel">
+            <div
+              id="board"
+              class="board"
+              aria-label="Pathfinding grid"
+            ></div>
+          </div>
+
+          <aside>
+            <div class="tool-row">
+              <button
+                id="toolWall"
+                class="tool active"
+                aria-pressed="true"
+              >
+                Draw Walls
+              </button>
+              <button
+                id="toolErase"
+                class="tool"
+                aria-pressed="false"
+              >
+                Erase
+              </button>
+            </div>
+
+            <div class="meta">
+              <div class="stat">
+                <span>Status</span><strong id="status">Ready</strong>
+              </div>
+              <div class="stat">
+                <span>Visited</span><strong id="visited">0</strong>
+              </div>
+              <div class="stat">
+                <span>Path length</span><strong id="pathLength">0</strong>
+              </div>
+            </div>
+
+            <div class="hint">
+              Drag the <strong>green</strong> start or <strong>red</strong> goal
+              node. Draw/erase walls with touch or mouse.
+            </div>
+
+            <div class="legend">
+              <div>
+                <span
+                  class="swatch"
+                  style="background: var(--start)"
+                ></span
+                >Start
+              </div>
+              <div>
+                <span
+                  class="swatch"
+                  style="background: var(--goal)"
+                ></span
+                >Goal
+              </div>
+              <div>
+                <span
+                  class="swatch"
+                  style="background: var(--wall)"
+                ></span
+                >Wall
+              </div>
+              <div>
+                <span
+                  class="swatch"
+                  style="background: var(--visited)"
+                ></span
+                >Visited
+              </div>
+              <div>
+                <span
+                  class="swatch"
+                  style="background: var(--path)"
+                ></span
+                >Path
+              </div>
+            </div>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const isNarrow = window.matchMedia('(max-width: 640px)').matches;
+      const isMedium = window.matchMedia('(max-width: 960px)').matches;
+      const grid = isNarrow
+        ? { rows: 18, cols: 20, cellSize: 16 }
+        : isMedium
+          ? { rows: 20, cols: 28, cellSize: 18 }
+          : { rows: 22, cols: 36, cellSize: 20 };
+
+      const boardEl = document.getElementById('board');
+      const algorithmEl = document.getElementById('algorithm');
+      const runBtn = document.getElementById('runBtn');
+      const mazeBtn = document.getElementById('mazeBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const statusEl = document.getElementById('status');
+      const visitedEl = document.getElementById('visited');
+      const pathLengthEl = document.getElementById('pathLength');
+      const toolWall = document.getElementById('toolWall');
+      const toolErase = document.getElementById('toolErase');
+
+      const state = {
+        rows: grid.rows,
+        cols: grid.cols,
+        start: {
+          row: Math.floor(grid.rows / 2),
+          col: Math.floor(grid.cols * 0.2),
+        },
+        goal: {
+          row: Math.floor(grid.rows / 2),
+          col: Math.floor(grid.cols * 0.8),
+        },
+        tool: 'wall',
+        walls: new Set(),
+        visited: new Set(),
+        path: new Set(),
+        pointerDown: false,
+        dragNode: null,
+        lastPaintKey: null,
+        running: false,
+        animationToken: 0,
+      };
+
+      const cells = Array.from({ length: state.rows }, () =>
+        Array(state.cols).fill(null),
+      );
+
+      boardEl.style.setProperty('--rows', String(state.rows));
+      boardEl.style.setProperty('--cols', String(state.cols));
+      boardEl.style.setProperty('--cell-size', `${grid.cellSize}px`);
+
+      function toKey(row, col) {
+        return `${row},${col}`;
+      }
+
+      function fromKey(key) {
+        const [row, col] = key.split(',').map(Number);
+        return { row, col };
+      }
+
+      function samePoint(a, b) {
+        return a.row === b.row && a.col === b.col;
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function clearVisualization() {
+        state.visited.clear();
+        state.path.clear();
+        visitedEl.textContent = '0';
+        pathLengthEl.textContent = '0';
+      }
+
+      function updateToolButtons() {
+        const isWall = state.tool === 'wall';
+        toolWall.classList.toggle('active', isWall);
+        toolErase.classList.toggle('active', !isWall);
+        toolWall.setAttribute('aria-pressed', String(isWall));
+        toolErase.setAttribute('aria-pressed', String(!isWall));
+      }
+
+      function cellClass(row, col) {
+        const classes = ['cell'];
+        const key = toKey(row, col);
+
+        if (state.walls.has(key)) classes.push('wall');
+        if (state.visited.has(key)) classes.push('visited');
+        if (state.path.has(key)) classes.push('path');
+        if (samePoint({ row, col }, state.start)) classes.push('start');
+        if (samePoint({ row, col }, state.goal)) classes.push('goal');
+
+        return classes.join(' ');
+      }
+
+      function paintCell(row, col) {
+        cells[row][col].className = cellClass(row, col);
+      }
+
+      function paintAll() {
+        for (let row = 0; row < state.rows; row += 1) {
+          for (let col = 0; col < state.cols; col += 1) {
+            paintCell(row, col);
+          }
+        }
+      }
+
+      function createBoard() {
+        const fragment = document.createDocumentFragment();
+
+        for (let row = 0; row < state.rows; row += 1) {
+          for (let col = 0; col < state.cols; col += 1) {
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'cell';
+            cell.dataset.row = String(row);
+            cell.dataset.col = String(col);
+            cell.setAttribute(
+              'aria-label',
+              `Row ${row + 1}, column ${col + 1}`,
+            );
+            cells[row][col] = cell;
+            fragment.append(cell);
+          }
+        }
+
+        boardEl.append(fragment);
+        paintAll();
+      }
+
+      function pointFromEvent(event) {
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const cell = target?.closest('.cell');
+        if (!cell || !boardEl.contains(cell)) return null;
+        return {
+          row: Number(cell.dataset.row),
+          col: Number(cell.dataset.col),
+        };
+      }
+
+      function applyTool(point) {
+        const key = toKey(point.row, point.col);
+
+        if (key === state.lastPaintKey) return;
+        state.lastPaintKey = key;
+
+        if (samePoint(point, state.start) || samePoint(point, state.goal))
+          return;
+
+        if (state.tool === 'wall') {
+          state.walls.add(key);
+        } else {
+          state.walls.delete(key);
+        }
+
+        clearVisualization();
+        setStatus('Ready');
+        paintCell(point.row, point.col);
+      }
+
+      function moveNode(kind, point) {
+        if (kind === 'start' && samePoint(point, state.goal)) return;
+        if (kind === 'goal' && samePoint(point, state.start)) return;
+
+        const prev = { ...state[kind] };
+        state[kind] = point;
+        state.walls.delete(toKey(point.row, point.col));
+        clearVisualization();
+        setStatus('Ready');
+        paintCell(prev.row, prev.col);
+        paintCell(point.row, point.col);
+      }
+
+      function neighbors(point) {
+        const list = [
+          { row: point.row - 1, col: point.col },
+          { row: point.row + 1, col: point.col },
+          { row: point.row, col: point.col - 1 },
+          { row: point.row, col: point.col + 1 },
+        ];
+
+        return list.filter(
+          (next) =>
+            next.row >= 0 &&
+            next.row < state.rows &&
+            next.col >= 0 &&
+            next.col < state.cols &&
+            !state.walls.has(toKey(next.row, next.col)),
+        );
+      }
+
+      function reconstructPath(cameFrom, endKey) {
+        if (!cameFrom.has(endKey)) return [];
+
+        const path = [];
+        let current = endKey;
+
+        while (current !== null) {
+          path.unshift(current);
+          current = cameFrom.get(current) ?? null;
+        }
+
+        return path;
+      }
+
+      function bfs() {
+        const startKey = toKey(state.start.row, state.start.col);
+        const goalKey = toKey(state.goal.row, state.goal.col);
+        const queue = [startKey];
+        const seen = new Set([startKey]);
+        const cameFrom = new Map([[startKey, null]]);
+        const visitedOrder = [];
+
+        while (queue.length > 0) {
+          const currentKey = queue.shift();
+          const current = fromKey(currentKey);
+          visitedOrder.push(currentKey);
+
+          if (currentKey === goalKey) break;
+
+          for (const next of neighbors(current)) {
+            const nextKey = toKey(next.row, next.col);
+            if (seen.has(nextKey)) continue;
+            seen.add(nextKey);
+            cameFrom.set(nextKey, currentKey);
+            queue.push(nextKey);
+          }
+        }
+
+        return {
+          visitedOrder,
+          path: reconstructPath(cameFrom, goalKey),
+        };
+      }
+
+      function heuristic(point) {
+        return (
+          Math.abs(point.row - state.goal.row) +
+          Math.abs(point.col - state.goal.col)
+        );
+      }
+
+      function aStar() {
+        const startKey = toKey(state.start.row, state.start.col);
+        const goalKey = toKey(state.goal.row, state.goal.col);
+
+        const openSet = new Set([startKey]);
+        const cameFrom = new Map([[startKey, null]]);
+        const gScore = new Map([[startKey, 0]]);
+        const fScore = new Map([[startKey, heuristic(state.start)]]);
+        const visitedOrder = [];
+
+        while (openSet.size > 0) {
+          let currentKey = null;
+          let bestScore = Infinity;
+
+          for (const candidate of openSet) {
+            const score = fScore.get(candidate) ?? Infinity;
+            if (score < bestScore) {
+              bestScore = score;
+              currentKey = candidate;
+            }
+          }
+
+          openSet.delete(currentKey);
+          visitedOrder.push(currentKey);
+
+          if (currentKey === goalKey) break;
+
+          const current = fromKey(currentKey);
+          const currentG = gScore.get(currentKey) ?? Infinity;
+
+          for (const next of neighbors(current)) {
+            const nextKey = toKey(next.row, next.col);
+            const tentative = currentG + 1;
+
+            if (tentative < (gScore.get(nextKey) ?? Infinity)) {
+              cameFrom.set(nextKey, currentKey);
+              gScore.set(nextKey, tentative);
+              fScore.set(nextKey, tentative + heuristic(next));
+              openSet.add(nextKey);
+            }
+          }
+        }
+
+        return {
+          visitedOrder,
+          path: reconstructPath(cameFrom, goalKey),
+        };
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      async function animateResult(result) {
+        const token = state.animationToken;
+        const reduceMotion = window.matchMedia(
+          '(prefers-reduced-motion: reduce)',
+        ).matches;
+        const visitDelay = reduceMotion ? 0 : 12;
+        const pathDelay = reduceMotion ? 0 : 28;
+
+        const startKey = toKey(state.start.row, state.start.col);
+        const goalKey = toKey(state.goal.row, state.goal.col);
+
+        for (const key of result.visitedOrder) {
+          if (token !== state.animationToken) return false;
+          if (key !== startKey && key !== goalKey) {
+            state.visited.add(key);
+            const { row, col } = fromKey(key);
+            paintCell(row, col);
+          }
+          visitedEl.textContent = String(state.visited.size);
+          if (visitDelay) await sleep(visitDelay);
+        }
+
+        for (const key of result.path) {
+          if (token !== state.animationToken) return false;
+          if (key !== startKey && key !== goalKey) {
+            state.path.add(key);
+            const { row, col } = fromKey(key);
+            paintCell(row, col);
+          }
+          const steps = Math.max(
+            0,
+            state.path.size + (result.path.length > 0 ? 1 : 0),
+          );
+          pathLengthEl.textContent = String(steps);
+          if (pathDelay) await sleep(pathDelay);
+        }
+
+        return true;
+      }
+
+      function setControlsDisabled(disabled) {
+        runBtn.disabled = disabled;
+        mazeBtn.disabled = disabled;
+        clearBtn.disabled = disabled;
+        algorithmEl.disabled = disabled;
+        toolWall.disabled = disabled;
+        toolErase.disabled = disabled;
+      }
+
+      async function runSearch() {
+        if (state.running) return;
+
+        state.running = true;
+        state.animationToken += 1;
+        clearVisualization();
+        setControlsDisabled(true);
+
+        const label = algorithmEl.value === 'astar' ? 'A*' : 'BFS';
+        setStatus(`Searching (${label})...`);
+
+        const result = algorithmEl.value === 'astar' ? aStar() : bfs();
+        const finished = await animateResult(result);
+
+        if (!finished) return;
+
+        if (result.path.length > 0) {
+          const pathLength = Math.max(0, result.path.length - 1);
+          pathLengthEl.textContent = String(pathLength);
+          setStatus('Solved');
+        } else {
+          pathLengthEl.textContent = '0';
+          setStatus('No path found');
+        }
+
+        state.running = false;
+        setControlsDisabled(false);
+      }
+
+      function randomMaze() {
+        if (state.running) return;
+
+        state.animationToken += 1;
+        state.walls.clear();
+        clearVisualization();
+        setStatus('Ready');
+
+        for (let row = 0; row < state.rows; row += 1) {
+          for (let col = 0; col < state.cols; col += 1) {
+            state.walls.add(toKey(row, col));
+          }
+        }
+
+        const inside = (row, col) =>
+          row > 0 && row < state.rows - 1 && col > 0 && col < state.cols - 1;
+
+        const carve = (row, col) => state.walls.delete(toKey(row, col));
+
+        const shuffle = (array) => {
+          for (let i = array.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+          }
+          return array;
+        };
+
+        const startCell = {
+          row:
+            1 + (Math.floor(Math.random() * ((state.rows - 2) / 2)) * 2 || 0),
+          col:
+            1 + (Math.floor(Math.random() * ((state.cols - 2) / 2)) * 2 || 0),
+        };
+
+        const stack = [[startCell.row, startCell.col]];
+        const seen = new Set([toKey(startCell.row, startCell.col)]);
+        carve(startCell.row, startCell.col);
+
+        while (stack.length > 0) {
+          const [row, col] = stack[stack.length - 1];
+          const options = [];
+
+          for (const [dr, dc] of shuffle([
+            [-2, 0],
+            [2, 0],
+            [0, -2],
+            [0, 2],
+          ])) {
+            const nr = row + dr;
+            const nc = col + dc;
+            const nextKey = toKey(nr, nc);
+
+            if (inside(nr, nc) && !seen.has(nextKey)) {
+              options.push([dr, dc, nr, nc]);
+            }
+          }
+
+          if (options.length === 0) {
+            stack.pop();
+            continue;
+          }
+
+          const [dr, dc, nr, nc] = options[0];
+          carve(row + dr / 2, col + dc / 2);
+          carve(nr, nc);
+          seen.add(toKey(nr, nc));
+          stack.push([nr, nc]);
+        }
+
+        const extraOpenings = Math.floor(state.rows * state.cols * 0.06);
+        for (let i = 0; i < extraOpenings; i += 1) {
+          const row = Math.floor(Math.random() * state.rows);
+          const col = Math.floor(Math.random() * state.cols);
+          const point = { row, col };
+          if (samePoint(point, state.start) || samePoint(point, state.goal))
+            continue;
+          state.walls.delete(toKey(row, col));
+        }
+
+        state.walls.delete(toKey(state.start.row, state.start.col));
+        state.walls.delete(toKey(state.goal.row, state.goal.col));
+        paintAll();
+      }
+
+      function clearBoard() {
+        if (state.running) return;
+        state.animationToken += 1;
+        state.walls.clear();
+        clearVisualization();
+        setStatus('Ready');
+        paintAll();
+      }
+
+      function pointerDown(event) {
+        if (state.running) return;
+
+        const point = pointFromEvent(event);
+        if (!point) return;
+
+        event.preventDefault();
+        boardEl.setPointerCapture(event.pointerId);
+
+        state.pointerDown = true;
+        state.lastPaintKey = null;
+
+        if (samePoint(point, state.start)) {
+          state.dragNode = 'start';
+        } else if (samePoint(point, state.goal)) {
+          state.dragNode = 'goal';
+        } else {
+          state.dragNode = null;
+          applyTool(point);
+        }
+      }
+
+      function pointerMove(event) {
+        if (!state.pointerDown || state.running) return;
+        const point = pointFromEvent(event);
+        if (!point) return;
+
+        if (state.dragNode) {
+          moveNode(state.dragNode, point);
+        } else {
+          applyTool(point);
+        }
+      }
+
+      function pointerUp(event) {
+        if (boardEl.hasPointerCapture(event.pointerId)) {
+          boardEl.releasePointerCapture(event.pointerId);
+        }
+        state.pointerDown = false;
+        state.dragNode = null;
+        state.lastPaintKey = null;
+      }
+
+      toolWall.addEventListener('click', () => {
+        state.tool = 'wall';
+        updateToolButtons();
+      });
+
+      toolErase.addEventListener('click', () => {
+        state.tool = 'erase';
+        updateToolButtons();
+      });
+
+      runBtn.addEventListener('click', runSearch);
+      mazeBtn.addEventListener('click', randomMaze);
+      clearBtn.addEventListener('click', clearBoard);
+
+      boardEl.addEventListener('pointerdown', pointerDown);
+      boardEl.addEventListener('pointermove', pointerMove);
+      boardEl.addEventListener('pointerup', pointerUp);
+      boardEl.addEventListener('pointercancel', pointerUp);
+
+      createBoard();
+      updateToolButtons();
+      setStatus('Ready');
+    </script>
+  </body>
+</html>

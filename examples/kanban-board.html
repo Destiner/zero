@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Launch Prep Kanban Board</title>
+    <style>
+      :root {
+        --bg: #f3f6fb;
+        --surface: #ffffff;
+        --surface-soft: #f8faff;
+        --text: #182235;
+        --muted: #5b6780;
+        --border: #d7dfef;
+        --shadow: 0 12px 30px rgba(24, 34, 53, 0.08);
+        --todo: #4378ff;
+        --doing: #ff9f1c;
+        --done: #23b26d;
+        --urgent: #d7263d;
+        --high: #ff6b35;
+        --medium: #3878ff;
+        --low: #2da44e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+          circle at 20% 0%,
+          #ffffff 0%,
+          #eef4ff 45%,
+          #eaf0fb 100%
+        );
+      }
+
+      .app {
+        width: min(1200px, 96vw);
+        margin: 1.25rem auto 2rem;
+      }
+
+      .topbar {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: var(--shadow);
+      }
+
+      .title-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 0.9rem;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.3rem, 2vw, 1.8rem);
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .task-form {
+        display: grid;
+        grid-template-columns: 1.4fr 0.55fr 0.55fr auto;
+        gap: 0.6rem;
+      }
+
+      .task-form input,
+      .task-form select,
+      .task-form button {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        font: inherit;
+        padding: 0.68rem 0.72rem;
+      }
+
+      .task-form input:focus,
+      .task-form select:focus,
+      .task-form button:focus,
+      .icon-btn:focus,
+      .drag-handle:focus {
+        outline: 3px solid rgba(67, 120, 255, 0.2);
+        outline-offset: 1px;
+      }
+
+      .task-form button {
+        background: linear-gradient(135deg, #305fdd, #4478ff);
+        color: #fff;
+        border-color: #2f62e8;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .board {
+        margin-top: 1rem;
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+      }
+
+      .column {
+        background: var(--surface-soft);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        min-height: 420px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .column-header {
+        padding: 0.8rem 0.85rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 700;
+      }
+
+      .column-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .dot {
+        width: 0.72rem;
+        height: 0.72rem;
+        border-radius: 99px;
+      }
+
+      .dot.todo {
+        background: var(--todo);
+      }
+
+      .dot.doing {
+        background: var(--doing);
+      }
+
+      .dot.done {
+        background: var(--done);
+      }
+
+      .count {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .column-body {
+        padding: 0.7rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        flex: 1;
+        min-height: 220px;
+        transition:
+          background-color 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .column-body.drag-over,
+      .column-body.touch-over {
+        background: rgba(67, 120, 255, 0.09);
+        box-shadow: inset 0 0 0 2px rgba(67, 120, 255, 0.35);
+        border-radius: 10px;
+      }
+
+      .task-card {
+        background: var(--surface);
+        border: 1px solid #d2daeb;
+        border-left: 6px solid var(--medium);
+        border-radius: 11px;
+        padding: 0.62rem;
+        box-shadow: 0 4px 10px rgba(24, 34, 53, 0.04);
+        cursor: grab;
+        user-select: none;
+      }
+
+      .task-card.priority-low {
+        border-left-color: var(--low);
+      }
+
+      .task-card.priority-medium {
+        border-left-color: var(--medium);
+      }
+
+      .task-card.priority-high {
+        border-left-color: var(--high);
+      }
+
+      .task-card.priority-urgent {
+        border-left-color: var(--urgent);
+      }
+
+      .task-card.dragging {
+        opacity: 0.4;
+      }
+
+      .task-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.4rem;
+      }
+
+      .task-title {
+        margin: 0.36rem 0 0.44rem;
+        line-height: 1.35;
+        font-size: 0.97rem;
+        word-break: break-word;
+      }
+
+      .task-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.55rem;
+      }
+
+      .badge {
+        font-size: 0.74rem;
+        border-radius: 99px;
+        padding: 0.22rem 0.56rem;
+        border: 1px solid transparent;
+        font-weight: 700;
+      }
+
+      .badge.low {
+        background: rgba(45, 164, 78, 0.11);
+        color: #176d31;
+        border-color: rgba(45, 164, 78, 0.25);
+      }
+
+      .badge.medium {
+        background: rgba(56, 120, 255, 0.11);
+        color: #1d4cbf;
+        border-color: rgba(56, 120, 255, 0.23);
+      }
+
+      .badge.high {
+        background: rgba(255, 107, 53, 0.12);
+        color: #a54520;
+        border-color: rgba(255, 107, 53, 0.26);
+      }
+
+      .badge.urgent {
+        background: rgba(215, 38, 61, 0.11);
+        color: #982235;
+        border-color: rgba(215, 38, 61, 0.24);
+      }
+
+      .meta-time {
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .task-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .icon-btn,
+      .drag-handle {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: #3e4f70;
+        border-radius: 8px;
+        width: 1.9rem;
+        height: 1.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        padding: 0;
+      }
+
+      .icon-btn {
+        cursor: pointer;
+      }
+
+      .icon-btn:hover,
+      .drag-handle:hover {
+        background: #f1f5ff;
+      }
+
+      .drag-handle {
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .empty {
+        margin: 0.35rem;
+        border: 1px dashed #bfd0f1;
+        border-radius: 10px;
+        color: #5d6f90;
+        text-align: center;
+        padding: 0.85rem;
+        font-size: 0.85rem;
+        background: rgba(255, 255, 255, 0.75);
+      }
+
+      .touch-ghost {
+        position: fixed;
+        z-index: 1000;
+        pointer-events: none;
+        opacity: 0.94;
+        box-shadow: 0 15px 26px rgba(24, 34, 53, 0.24);
+        transform: rotate(1.2deg);
+      }
+
+      @media (max-width: 980px) {
+        .task-form {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .task-form button {
+          grid-column: span 2;
+        }
+
+        .board {
+          grid-template-columns: 1fr;
+        }
+
+        .column {
+          min-height: 250px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .app {
+          width: 94vw;
+        }
+
+        .task-form {
+          grid-template-columns: 1fr;
+        }
+
+        .task-form button {
+          grid-column: auto;
+        }
+
+        .task-title {
+          font-size: 0.93rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <section class="topbar">
+        <div class="title-wrap">
+          <h1>Launch Prep Kanban</h1>
+          <p class="subtitle">Plan, prioritize, and ship with confidence.</p>
+        </div>
+
+        <form
+          class="task-form"
+          id="task-form"
+          autocomplete="off"
+        >
+          <label
+            class="sr-only"
+            for="task-title"
+            hidden
+            >Task title</label
+          >
+          <input
+            id="task-title"
+            name="title"
+            type="text"
+            maxlength="140"
+            placeholder="Add a task..."
+            required
+          />
+
+          <label
+            class="sr-only"
+            for="task-priority"
+            hidden
+            >Priority</label
+          >
+          <select
+            id="task-priority"
+            name="priority"
+            aria-label="Priority"
+          >
+            <option value="low">Low</option>
+            <option
+              value="medium"
+              selected
+            >
+              Medium
+            </option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+
+          <label
+            class="sr-only"
+            for="task-status"
+            hidden
+            >Status</label
+          >
+          <select
+            id="task-status"
+            name="status"
+            aria-label="Column"
+          >
+            <option
+              value="todo"
+              selected
+            >
+              Todo
+            </option>
+            <option value="doing">Doing</option>
+            <option value="done">Done</option>
+          </select>
+
+          <button type="submit">Add Task</button>
+        </form>
+      </section>
+
+      <section
+        class="board"
+        id="board"
+        aria-label="Kanban board"
+      >
+        <article
+          class="column"
+          data-status="todo"
+        >
+          <header class="column-header">
+            <span class="column-title"><span class="dot todo"></span>Todo</span>
+            <span
+              class="count"
+              data-count-for="todo"
+              >0</span
+            >
+          </header>
+          <div
+            class="column-body"
+            data-status="todo"
+          ></div>
+        </article>
+
+        <article
+          class="column"
+          data-status="doing"
+        >
+          <header class="column-header">
+            <span class="column-title"
+              ><span class="dot doing"></span>Doing</span
+            >
+            <span
+              class="count"
+              data-count-for="doing"
+              >0</span
+            >
+          </header>
+          <div
+            class="column-body"
+            data-status="doing"
+          ></div>
+        </article>
+
+        <article
+          class="column"
+          data-status="done"
+        >
+          <header class="column-header">
+            <span class="column-title"><span class="dot done"></span>Done</span>
+            <span
+              class="count"
+              data-count-for="done"
+              >0</span
+            >
+          </header>
+          <div
+            class="column-body"
+            data-status="done"
+          ></div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      (() => {
+        const STORAGE_KEY = 'local.kanban.launch-prep.v1';
+        const STATUSES = ['todo', 'doing', 'done'];
+        const STATUS_LABELS = {
+          todo: 'Todo',
+          doing: 'Doing',
+          done: 'Done',
+        };
+
+        const PRIORITY_LABELS = {
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          urgent: 'Urgent',
+        };
+
+        const SEED_TASKS = [
+          {
+            id: 'seed-1',
+            title: 'Finalize launch checklist and go/no-go criteria',
+            priority: 'high',
+            status: 'todo',
+            createdAt: Date.now() - 1000 * 60 * 60 * 30,
+          },
+          {
+            id: 'seed-2',
+            title: 'Coordinate release notes with product marketing',
+            priority: 'medium',
+            status: 'todo',
+            createdAt: Date.now() - 1000 * 60 * 60 * 21,
+          },
+          {
+            id: 'seed-3',
+            title: 'Run production smoke tests on staging mirror',
+            priority: 'urgent',
+            status: 'doing',
+            createdAt: Date.now() - 1000 * 60 * 60 * 13,
+          },
+          {
+            id: 'seed-4',
+            title: 'Confirm rollback plan with on-call engineering',
+            priority: 'high',
+            status: 'doing',
+            createdAt: Date.now() - 1000 * 60 * 60 * 8,
+          },
+          {
+            id: 'seed-5',
+            title: 'Book launch-day status room and comms channel',
+            priority: 'low',
+            status: 'done',
+            createdAt: Date.now() - 1000 * 60 * 60 * 52,
+          },
+        ];
+
+        const form = document.getElementById('task-form');
+        const titleInput = document.getElementById('task-title');
+        const board = document.getElementById('board');
+        const columns = Object.fromEntries(
+          STATUSES.map((status) => [
+            status,
+            board.querySelector(`.column-body[data-status="${status}"]`),
+          ]),
+        );
+        const countEls = Object.fromEntries(
+          STATUSES.map((status) => [
+            status,
+            board.querySelector(`[data-count-for="${status}"]`),
+          ]),
+        );
+
+        let state = loadState();
+        let draggingTaskId = null;
+        let touchDrag = null;
+
+        render();
+
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const formData = new FormData(form);
+          const title = String(formData.get('title') || '').trim();
+          const priority = String(formData.get('priority') || 'medium');
+          const status = String(formData.get('status') || 'todo');
+
+          if (!title) {
+            titleInput.focus();
+            return;
+          }
+
+          const task = {
+            id: makeId(),
+            title,
+            priority: PRIORITY_LABELS[priority] ? priority : 'medium',
+            status: STATUS_LABELS[status] ? status : 'todo',
+            createdAt: Date.now(),
+          };
+
+          state.tasks.unshift(task);
+          persistAndRender();
+          form.reset();
+          document.getElementById('task-priority').value = 'medium';
+          document.getElementById('task-status').value = 'todo';
+          titleInput.focus();
+        });
+
+        board.addEventListener('click', (event) => {
+          const deleteButton = event.target.closest('.delete-task');
+          if (!deleteButton) return;
+          const card = deleteButton.closest('.task-card');
+          if (!card) return;
+
+          deleteTask(card.dataset.id);
+        });
+
+        board.addEventListener('dragstart', (event) => {
+          const card = event.target.closest('.task-card');
+          if (!card) return;
+
+          draggingTaskId = card.dataset.id;
+          card.classList.add('dragging');
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', draggingTaskId);
+          }
+        });
+
+        board.addEventListener('dragend', (event) => {
+          const card = event.target.closest('.task-card');
+          if (card) {
+            card.classList.remove('dragging');
+          }
+
+          clearDropStates();
+          draggingTaskId = null;
+        });
+
+        for (const status of STATUSES) {
+          const zone = columns[status];
+
+          zone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            zone.classList.add('drag-over');
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = 'move';
+            }
+          });
+
+          zone.addEventListener('dragleave', (event) => {
+            if (!zone.contains(event.relatedTarget)) {
+              zone.classList.remove('drag-over');
+            }
+          });
+
+          zone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            zone.classList.remove('drag-over');
+            const taskId =
+              (event.dataTransfer &&
+                event.dataTransfer.getData('text/plain')) ||
+              draggingTaskId;
+            if (!taskId) return;
+            moveTask(taskId, status);
+          });
+        }
+
+        board.addEventListener(
+          'touchstart',
+          (event) => {
+            const handle = event.target.closest('.drag-handle');
+            if (!handle) return;
+
+            const card = handle.closest('.task-card');
+            if (!card) return;
+
+            const touch = event.changedTouches[0];
+            if (!touch) return;
+
+            const rect = card.getBoundingClientRect();
+            const ghost = card.cloneNode(true);
+            ghost.classList.add('touch-ghost');
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.height = `${rect.height}px`;
+
+            touchDrag = {
+              taskId: card.dataset.id,
+              sourceCard: card,
+              ghost,
+              offsetX: touch.clientX - rect.left,
+              offsetY: touch.clientY - rect.top,
+              overZone: null,
+            };
+
+            card.classList.add('dragging');
+            document.body.appendChild(ghost);
+            placeGhost(touch.clientX, touch.clientY);
+
+            window.addEventListener('touchmove', onTouchMove, {
+              passive: false,
+            });
+            window.addEventListener('touchend', onTouchEnd, { passive: false });
+            window.addEventListener('touchcancel', onTouchEnd, {
+              passive: false,
+            });
+          },
+          { passive: true },
+        );
+
+        function onTouchMove(event) {
+          if (!touchDrag) return;
+          const touch = event.changedTouches[0];
+          if (!touch) return;
+
+          event.preventDefault();
+          placeGhost(touch.clientX, touch.clientY);
+
+          const element = document.elementFromPoint(
+            touch.clientX,
+            touch.clientY,
+          );
+          const zone = element ? element.closest('.column-body') : null;
+          setTouchOverZone(zone);
+        }
+
+        function onTouchEnd(event) {
+          if (!touchDrag) return;
+
+          const touch = event.changedTouches[0];
+          let zone = touchDrag.overZone;
+
+          if (touch) {
+            const element = document.elementFromPoint(
+              touch.clientX,
+              touch.clientY,
+            );
+            zone = element ? element.closest('.column-body') || zone : zone;
+          }
+
+          if (zone) {
+            moveTask(touchDrag.taskId, zone.dataset.status);
+          }
+
+          cleanupTouchDrag();
+        }
+
+        function placeGhost(clientX, clientY) {
+          if (!touchDrag) return;
+          touchDrag.ghost.style.left = `${clientX - touchDrag.offsetX}px`;
+          touchDrag.ghost.style.top = `${clientY - touchDrag.offsetY}px`;
+        }
+
+        function setTouchOverZone(zone) {
+          if (!touchDrag) return;
+          if (touchDrag.overZone === zone) return;
+
+          clearDropStates();
+          touchDrag.overZone = zone;
+          if (zone) {
+            zone.classList.add('touch-over');
+          }
+        }
+
+        function cleanupTouchDrag() {
+          if (!touchDrag) return;
+
+          touchDrag.sourceCard.classList.remove('dragging');
+          if (touchDrag.ghost.isConnected) {
+            touchDrag.ghost.remove();
+          }
+
+          clearDropStates();
+          touchDrag = null;
+
+          window.removeEventListener('touchmove', onTouchMove);
+          window.removeEventListener('touchend', onTouchEnd);
+          window.removeEventListener('touchcancel', onTouchEnd);
+        }
+
+        function moveTask(taskId, nextStatus) {
+          if (!STATUSES.includes(nextStatus)) return;
+
+          const index = state.tasks.findIndex((task) => task.id === taskId);
+          if (index === -1) return;
+
+          const task = state.tasks[index];
+          if (task.status === nextStatus) return;
+
+          state.tasks.splice(index, 1);
+          task.status = nextStatus;
+
+          const insertIndex = state.tasks.findIndex(
+            (item) => item.status === nextStatus,
+          );
+          if (insertIndex === -1) {
+            state.tasks.push(task);
+          } else {
+            state.tasks.splice(insertIndex, 0, task);
+          }
+
+          persistAndRender();
+        }
+
+        function deleteTask(taskId) {
+          const index = state.tasks.findIndex((task) => task.id === taskId);
+          if (index === -1) return;
+
+          state.tasks.splice(index, 1);
+          persistAndRender();
+        }
+
+        function render() {
+          for (const status of STATUSES) {
+            const zone = columns[status];
+            zone.textContent = '';
+
+            const tasks = state.tasks.filter((task) => task.status === status);
+            countEls[status].textContent =
+              `${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
+
+            if (!tasks.length) {
+              const empty = document.createElement('p');
+              empty.className = 'empty';
+              empty.textContent =
+                status === 'done'
+                  ? 'Nothing completed yet.'
+                  : 'Drop tasks here.';
+              zone.appendChild(empty);
+              continue;
+            }
+
+            for (const task of tasks) {
+              zone.appendChild(createTaskElement(task));
+            }
+          }
+        }
+
+        function createTaskElement(task) {
+          const card = document.createElement('article');
+          card.className = `task-card priority-${task.priority}`;
+          card.dataset.id = task.id;
+          card.draggable = true;
+
+          const top = document.createElement('div');
+          top.className = 'task-top';
+
+          const actions = document.createElement('div');
+          actions.className = 'task-actions';
+
+          const handle = document.createElement('button');
+          handle.className = 'drag-handle';
+          handle.type = 'button';
+          handle.title = 'Drag task';
+          handle.setAttribute('aria-label', 'Drag task');
+          handle.textContent = '⠿';
+
+          const del = document.createElement('button');
+          del.className = 'icon-btn delete-task';
+          del.type = 'button';
+          del.title = 'Delete task';
+          del.setAttribute('aria-label', 'Delete task');
+          del.textContent = '✕';
+
+          actions.append(handle, del);
+          top.append(actions);
+
+          const title = document.createElement('p');
+          title.className = 'task-title';
+          title.textContent = task.title;
+
+          const meta = document.createElement('div');
+          meta.className = 'task-meta';
+
+          const badge = document.createElement('span');
+          badge.className = `badge ${task.priority}`;
+          badge.textContent = PRIORITY_LABELS[task.priority] || 'Medium';
+
+          const time = document.createElement('time');
+          time.className = 'meta-time';
+          time.dateTime = new Date(task.createdAt).toISOString();
+          time.textContent = shortTimeAgo(task.createdAt);
+
+          meta.append(badge, time);
+          card.append(top, title, meta);
+          return card;
+        }
+
+        function shortTimeAgo(time) {
+          const diff = Math.max(0, Date.now() - Number(time || 0));
+          const minutes = Math.floor(diff / 60000);
+          if (minutes < 1) return 'just now';
+          if (minutes < 60) return `${minutes}m ago`;
+          const hours = Math.floor(minutes / 60);
+          if (hours < 24) return `${hours}h ago`;
+          const days = Math.floor(hours / 24);
+          return `${days}d ago`;
+        }
+
+        function clearDropStates() {
+          for (const status of STATUSES) {
+            columns[status].classList.remove('drag-over', 'touch-over');
+          }
+        }
+
+        function loadState() {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return { tasks: SEED_TASKS.map((task) => ({ ...task })) };
+
+            const parsed = JSON.parse(raw);
+            if (!parsed || !Array.isArray(parsed.tasks)) {
+              return { tasks: SEED_TASKS.map((task) => ({ ...task })) };
+            }
+
+            const tasks = parsed.tasks
+              .map((task) => normalizeTask(task))
+              .filter(Boolean);
+
+            return {
+              tasks: tasks.length
+                ? tasks
+                : SEED_TASKS.map((task) => ({ ...task })),
+            };
+          } catch {
+            return { tasks: SEED_TASKS.map((task) => ({ ...task })) };
+          }
+        }
+
+        function normalizeTask(task) {
+          if (!task || typeof task !== 'object') return null;
+          const title = String(task.title || '').trim();
+          if (!title) return null;
+
+          const priority = PRIORITY_LABELS[task.priority]
+            ? task.priority
+            : 'medium';
+          const status = STATUS_LABELS[task.status] ? task.status : 'todo';
+          const createdAt = Number.isFinite(Number(task.createdAt))
+            ? Number(task.createdAt)
+            : Date.now();
+
+          return {
+            id: String(task.id || makeId()),
+            title,
+            priority,
+            status,
+            createdAt,
+          };
+        }
+
+        function persistAndRender() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          render();
+        }
+
+        function makeId() {
+          if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+          }
+          return `task-${Date.now()}-${Math.floor(Math.random() * 1e8)}`;
+        }
+      })();
+    </script>
+  </body>
+</html>
