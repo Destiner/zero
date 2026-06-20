@@ -49,11 +49,11 @@ function createAgent(): Agent {
 
 The examples in [`examples/`](./examples/) are standalone HTML apps generated with Zero.
 
-- [Tic-Tac-Toe](./examples/tic-tac-toe.html)
-- [Conway's Game of Life](./examples/conway.html)
-- [Pathfinding Visualizer](./examples/pathfinding-visualizer.html)
-- [Pixel Editor](./examples/pixel-editor.html)
-- [Local Kanban Board](./examples/kanban-board.html)
+- Tic Tac Toe ([Source](./examples/tic-tac-toe.html) [Demo](https://destiner.github.io/zero/examples/tic-tac-toe.html))
+- Conway's Game of Life ([Source](./examples/conway.html) [Demo](https://destiner.github.io/zero/examples/conway.html))
+- Pathfinding Visualizer ([Source](./examples/pathfinding-visualizer.html) [Demo](https://destiner.github.io/zero/examples/pathfinding-visualizer.html))
+- Pixel Editor ([Source](./examples/pixel-editor.html) [Demo](https://destiner.github.io/zero/examples/pixel-editor.html))
+- Local Kanban Board ([Source](./examples/kanban-board.html) [Demo](https://destiner.github.io/zero/examples/kanban-board.html))
 
 ## Roboport Usage
 
