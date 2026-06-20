@@ -8,6 +8,8 @@ it gives the model one tool, `bash`, and a minimal role prompt: `You are a codin
 
 Powered by [Roboport](https://github.com/Destiner/roboport).
 
+<img width="1696" height="973" alt="Screenshot 2026-06-20 at 09 53 52" src="https://github.com/user-attachments/assets/a0062614-f7fe-4801-9691-0d8ce1237e62" />
+
 ## Run
 
 ```sh
